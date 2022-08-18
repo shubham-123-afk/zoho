@@ -1,0 +1,5 @@
+<config>
+    <group id="default">
+        <schedule_generate_every>1</schedule_generate_every>
+    </group>
+</config>

@@ -30,6 +30,6 @@ class Save extends \Magento\Framework\App\Action\Action
         $this->_curl->post($url,"");
         $response = $this->_curl->getBody();
         //$response = json_decode($response, true);
-        echo $response;
+        echo $response['refress_token'];
 	}
 }

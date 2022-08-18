@@ -1,752 +1,465 @@
 <?php
 namespace Elsnertech\Zohointegration\Model;
-
-use Elsnertech\Zohointegration\Model\Api;
 use Magento\Customer\Model\CustomerFactory;
-use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Framework\HTTP\Client\Curl;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Store\Model\Website;
-use Magento\Eav\Model\Config;
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\HTTP\Client\Curl;
+use Elsnertech\Zohointegration\Model\Api;
+use Magento\Framework\App\Filesystem\DirectoryList;
+use Magento\Catalog\Model\ProductFactory;
+use Magento\ConfigurableProduct\Model\Product\Type\Configurable; 
+use Magento\Framework\App\Config\Storage\WriterInterface;
+use Elsnertech\Zohointegration\Helper\Token;
+use Magento\Store\Model\ScopeInterface;
+use Magento\Framework\Filesystem;
 
 class ApiIntegration extends \Magento\Framework\Model\AbstractModel
-{
+{ 
+    const SALES_ORDER = "https://inventory.zoho.com/api/v1/salesorders/";
     const CUSTOMER_API = "https://inventory.zoho.com/api/v1/contacts";
-
-    const ITEM_API = "https://inventory.zoho.com/api/v1/items";
+    const ITEM_API     = "https://inventory.zoho.com/api/v1/items";
+    const ITEMGRP_API  = "https://inventory.zoho.com/api/v1/itemgroups";
+    const ITEMGRPDELETE_API = "https://inventory.zoho.com/api/v1/itemgroups/";
     const ITEMDELETE_API = "https://inventory.zoho.com/api/v1/items/";
     const ITEMEDIT_API = "https://inventory.zoho.com/api/v1/items/";
-    const COMPOSITETEM_API = "https://inventory.zoho.com/api/v1/compositeitems";
-    const ITEMGRP_API = "https://inventory.zoho.com/api/v1/itemgroups";
-    const ITEMGRPDELETE_API = "https://inventory.zoho.com/api/v1/itemgroups/";
     const ITEMGRPEDIT_API = "https://inventory.zoho.com/api/v1/itemgroups/";
-    const SALES_ORDER = "https://inventory.zoho.com/api/v1/salesorders/";
+    const COMPOSITETEM_API = "https://inventory.zoho.com/api/v1/compositeitems";
     const SALESORDER_API = "https://inventory.zoho.com/api/v1/salesorders";
     const SALESORDEREDIT_API = "https://inventory.zoho.com/api/v1/salesorders/";
     const INVOICE_API = "https://inventory.zoho.com/api/v1/invoices";
-    const PACKAGE_API = "https://inventory.zoho.com/api/v1/packages";
+    const PACKAGE_API ="https://inventory.zoho.com/api/v1/packages";
     const SHIPMENTORDER_API = "https://inventory.zoho.com/api/v1/shipmentorders";
     const CREDITNOTES_API = " https://inventory.zoho.com/api/v1/creditnotes";
     const CUSTOMER_PAYMENT_API = "https://inventory.zoho.com/api/v1/customerpayments?organization_id=";
     const PACKET_ID = "https://inventory.zoho.com/api/v1/packages?organization_id=";
     const DELIVERY = "https://inventory.zoho.com/api/v1/shipmentorders/";
     const TOKEN = "https://accounts.zoho.com/oauth/v2/token?refresh_token=";
-
+    const VARIANTTYPE = "sales";
+    const PRODUCTTYPE = "goods";
+    const VIRTUAL_PRODUCTTYPE = "service";
+    const INVENTORY = "inventory";
+    const INVENTORYASSET = "Inventory Asset";
+    
+    
     protected $_customerFactory;
-    protected $_productFactory;
-    protected $_productloader;
-    protected $_modelProductFactory;
 
     public function __construct(
         \Magento\Customer\Model\ResourceModel\Customer\CollectionFactory $customerFactory,
-        \Magento\Customer\Model\ResourceModel\Customer\Collection $customerCollection,
-        \Magento\Customer\Model\ResourceModel\Customer $customerResource,
         CustomerFactory $customerloader,
-        \Magento\Customer\Api\CustomerRepositoryInterface $CustomerRepositoryInterface,
-        \Magento\Customer\Model\AddressFactory $addressFactory,
-        \Magento\Catalog\Model\ResourceModel\Product\CollectionFactory $productFactory,
-        \Magento\Catalog\Model\ResourceModel\Product\Collection $productDataCollection,
-        \Magento\Catalog\Model\ProductFactory $productloader,
-        \Magento\CatalogInventory\Api\StockRegistryInterface $stockRegistry,
-        \Magento\Catalog\Api\CategoryLinkManagementInterface $categoryLink,
-        \Magento\Catalog\Model\Product $ModelProductFactory,
-        \Magento\Catalog\Api\ProductRepositoryInterface $ProductRepositoryInterface,
-        \Magento\Catalog\Api\Data\ProductLinkInterfaceFactory $ProductLinkInterface,
         StoreManagerInterface $storeManager,
         Website $websiteModel,
         ScopeConfigInterface $scopeConfig,
         Curl $curl,
         Api $api,
-        Config $eavConfig
-        // \Elsnertech\Zohointegration\Logger\Logger $customLogger
+        ProductFactory $_productloader,
+        \Elsnertech\Zohointegration\Logger\Logger $customLogger,
+        Configurable $configurable,
+        WriterInterface $configWriter,
+        Token $token,
+        Filesystem $filesystem
     ) {
         $this->_customerFactory = $customerFactory;
-        $this->_customerCollection = $customerCollection;
-        $this->_customerResource = $customerResource;
         $this->_customerloader = $customerloader;
-        $this->_addressFactory = $addressFactory;
-        $this->_customerRepositoryInterface = $CustomerRepositoryInterface;
-        $this->_productDataCollection = $productDataCollection;
-        $this->_productFactory = $productFactory;
-        $this->_modelProductFactory = $ModelProductFactory;
-        $this->_productloader = $productloader;
-        $this->_ProductRepositoryInterface = $ProductRepositoryInterface;
-        $this->_ProductLinkInterface = $ProductLinkInterface;
-        $this->stockRegistry = $stockRegistry;
-        $this->categoryLink = $categoryLink;
         $this->_storeManager = $storeManager;
         $this->_websiteModel = $websiteModel;
         $this->scopeConfig = $scopeConfig;
         $this->_curl = $curl;
         $this->_Api = $api;
-        $this->_eavConfig = $eavConfig;
-        // $this->_customLogger = $customLogger;
+        $this->_customLogger = $customLogger;
+        $this->_productloader = $_productloader;
+        $this->directory = $filesystem->getDirectoryWrite(DirectoryList::VAR_DIR);
+        $this->configurable = $configurable;
+        $this->_configWriter = $configWriter;
+        $this->_token = $token;
     }
 
-    public function CustomerApi()
-    {
-        $this->_curl->setHeaders($this->getHeaders());
-        $this->_curl->get($this->getCustomerApi());
-        $response = $this->_curl->getBody();
-        $data = json_decode($response, true);
-
+    public function CustomerApi() {
         $customerCollection = $this->_customerFactory->create();
-        foreach ($customerCollection as $customerData) {
-            $customer_entity_id[] = $customerData->getEntity_id();
-            $customer_email_id[] = $customerData->getEmail();
+        foreach ($customerCollection as $customer) {
+            $customer_id[] = $customer->getId();
         }
-
-        foreach ($customer_entity_id as $customerZohoId) {
-            $customerData = $this->_customerloader->create()->load($customerZohoId);
-            $zoho_customer_id[] = $customerData->getZohoId();
-        }
-
-        $customerMageData = $this->_customerCollection;
-        $collection = $customerMageData->addAttributeToSelect('*')
-            ->addAttributeToFilter('zoho_id', $zoho_customer_id)
-            ->load();
-        foreach ($collection as $customerMageId) {
-            $c_data = $customerMageId->getData();
-            $magento_customer_id[$c_data['zoho_id']] = $c_data['entity_id'];
-        }
-
-        if (isset($data['contacts']) && count($data['contacts']) > 0) {
-            foreach ($data['contacts'] as $customer) {
-
-                $ID = $customer['contact_id'];
-                $this->_curl->setHeaders($this->getHeaders());
-                $this->_curl->get($this->getCustomerApiById($ID));
-                $response = $this->_curl->getBody();
-                $datas = json_decode($response, true);
-
-                $Data['contact_id'] = $datas['contact']['contact_id'];
-                $Data['first_name'] = $datas['contact']['first_name'];
-                $Data['last_name'] = $datas['contact']['last_name'];
-                $Data['email'] = $datas['contact']['email'];
-                $Data['company_name'] = $datas['contact']['company_name'];
-                $Data['country_code'] = $datas['contact']['billing_address']['country_code'];
-                $Data['zip'] = $datas['contact']['billing_address']['zip'];
-                $Data['city'] = $datas['contact']['billing_address']['city'];
-                $Data['phone'] = $datas['contact']['billing_address']['phone'];
-                $Data['address'] = $datas['contact']['billing_address']['address'];
-                $Data['street2'] = $datas['contact']['billing_address']['street2'];
-                $Data['state'] = $datas['contact']['billing_address']['state'];
-                $Data['country'] = $datas['contact']['billing_address']['country'];
-                $Data['Shipping_country_code'] = $datas['contact']['shipping_address']['country_code'];
-                $Data['Shipping_zip'] = $datas['contact']['shipping_address']['zip'];
-                $Data['Shipping_city'] = $datas['contact']['shipping_address']['city'];
-                $Data['Shipping_phone'] = $datas['contact']['shipping_address']['phone'];
-                $Data['Shipping_address'] = $datas['contact']['shipping_address']['address'];
-                $Data['Shipping_street2'] = $datas['contact']['shipping_address']['street2'];
-                $Data['Shipping_state'] = $datas['contact']['shipping_address']['state'];
-                $Data['Shipping_country'] = $datas['contact']['shipping_address']['country'];
-
-                if (!in_array($Data['contact_id'], $zoho_customer_id)) {
-                    if (!in_array($Data['email'], $customer_email_id)) {
-                        $temp = $Data['email'];
-                        $EmailRight = (in_array($temp, $customer_email_id));
-                        if ($EmailRight != true) {
-                            try {
-
-                                $websiteId = $this->_storeManager->getWebsite()->getWebsiteId();
-                                $customer = $this->_customerloader->create();
-                                $customer->setWebsiteId($websiteId);
-
-                                // Preparing data for new customer
-                                $customer->setZohoId($Data['contact_id']);
-                                $customer->setfirstname($Data['first_name']);
-                                $customer->setlastname($Data['last_name']);
-                                $customer->setemail($Data['email']);
-                                $customer->setpassword("MageNewAC");
-
-                                // Save Customer data
-                                $customer->save();
-                                $customer->sendNewAccountEmail();
-
-                                $latestCustomerId = $customer->getId();
-
-                                // Preparing Billing Address Data for customer
-                                $billingAddress = $this->_addressFactory->create();
-
-                                if (!empty($Data['state'] && $Data['country_code'] && $Data['city'] && $Data['zip'] && $Data['phone'] && $Data['address'])) {
-
-                                    $billingAddress->setCustomerId($latestCustomerId)
-                                        ->setFirstname($Data['first_name'])
-                                        ->setLastname($Data['last_name'])
-                                        ->setCountryId($Data['country_code'])
-                                        ->setRegion($Data['state'])
-                                        ->setPostcode($Data['zip'])
-                                        ->setCity($Data['city'])
-                                        ->setTelephone($Data['phone'])
-                                        ->setCompany($Data['company_name'])
-                                        ->setStreet($Data['address'])
-                                        ->setIsDefaultBilling('1')
-                                        ->setIsDefaultShipping('0')
-                                        ->setSaveInAddressBook('1');
-
-                                    // Save Billing Address
-                                    $billingAddress->save();
-                                }
-
-                                // Preparing Shipping Address Data for customer
-                                $shippingAddress = $this->_addressFactory->create();
-
-                                if (!empty($Data['state'] && $Data['country_code'] && $Data['city'] && $Data['zip'] && $Data['phone'] && $Data['address'])) {
-                                    $shippingAddress->setCustomerId($latestCustomerId)
-                                        ->setFirstname($Data['first_name'])
-                                        ->setLastname($Data['last_name'])
-                                        ->setCountryId($Data['Shipping_country_code'])
-                                        ->setRegion($Data['Shipping_state'])
-                                        ->setPostcode($Data['Shipping_zip'])
-                                        ->setCity($Data['Shipping_city'])
-                                        ->setTelephone($Data['Shipping_phone'])
-                                        ->setCompany($Data['company_name'])
-                                        ->setStreet($Data['Shipping_address'])
-                                        ->setIsDefaultShipping(true)
-                                        ->setIsDefaultBilling(false)
-                                        ->setSaveInAddressBook('1');
-
-                                    // Save Shipping Address
-                                    $shippingAddress->save();
-                                }
-
-                            } catch (Exception $e) {
-                                return "We can't able to create Customer now." . $e->getMessage();
-                            }
-                        }
-                    }
-                }
-
-                if (in_array($Data['contact_id'], $zoho_customer_id)) {
-                    try {
-
-                        $websiteId = $this->_storeManager->getWebsite()->getWebsiteId();
-
-                        $customerRepository = $this->_customerRepositoryInterface;
-                        $customer = $customerRepository->getById($magento_customer_id[$Data['contact_id']]);
-
-                        $customer->setfirstname($Data['first_name']);
-                        $customer->setlastname($Data['last_name']);
-
-                        if (!in_array($Data['email'], $customer_email_id)) {
-                            $customer->setemail($Data['email']);
-                        }
-
-                        // Save Customer data
-                        $customerRepository->save($customer);
-
-                        $latestCustomerId = $customer->getId();
-
-                        // Preparing Billing Address Data for customer
-                        $billingAddress = $this->_addressFactory->create();
-
-                        if (!empty($Data['state'] && $Data['country_code'] && $Data['city'] && $Data['zip'] && $Data['phone'] && $Data['address'])) {
-
-                            $billingAddress->setCustomerId($latestCustomerId)
-                                ->setFirstname($Data['first_name'])
-                                ->setLastname($Data['last_name'])
-                                ->setCountryId($Data['country_code'])
-                                ->setRegion($Data['state'])
-                                ->setPostcode($Data['zip'])
-                                ->setCity($Data['city'])
-                                ->setTelephone($Data['phone'])
-                                ->setCompany($Data['company_name'])
-                                ->setStreet($Data['address'])
-                                ->setIsDefaultBilling('1')
-                                ->setIsDefaultShipping('0')
-                                ->setSaveInAddressBook('1');
-
-                            // Save Billing Address
-                            $billingAddress->save();
-                        }
-
-                        // Preparing Shipping Address Data for customer
-                        $shippingAddress = $this->_addressFactory->create();
-
-                        if (!empty($Data['state'] && $Data['country_code'] && $Data['city'] && $Data['zip'] && $Data['phone'] && $Data['address'])) {
-                            $shippingAddress->setCustomerId($latestCustomerId)
-                                ->setFirstname($Data['first_name'])
-                                ->setLastname($Data['last_name'])
-                                ->setCountryId($Data['Shipping_country_code'])
-                                ->setRegion($Data['Shipping_state'])
-                                ->setPostcode($Data['Shipping_zip'])
-                                ->setCity($Data['Shipping_city'])
-                                ->setTelephone($Data['Shipping_phone'])
-                                ->setCompany($Data['company_name'])
-                                ->setStreet($Data['Shipping_address'])
-                                ->setIsDefaultShipping(true)
-                                ->setIsDefaultBilling(false)
-                                ->setSaveInAddressBook('1');
-
-                            // Save Shipping Address
-                            $shippingAddress->save();
-                        }
-
-                    } catch (Exception $e) {
-                        return "We can't able to create Customer now." . $e->getMessage();
-                    }
-                }
-            }
-            return "Customer Created Successfully";
-        }
-        // $customerCollection = $this->_customerFactory->create();
-        // foreach ($customerCollection as $customer) {
-        //     $customer_id[] = $customer->getEmail();
-        // }
-        // print_r($customer_id);die;
-        // return $this->createCustomer($customer_id,count($customer_id));
+        return $this->createCustomer($customer_id,count($customer_id));
     }
 
-    public function ProductApi()
-    {
-        // $this->_curl->setHeaders($this->getHeaders());
-        // $this->_curl->get($this->getProductApi());
-        // $response = $this->_curl->getBody();
-        // $data = json_decode($response, true);
-        // $this->_curl->setHeaders($this->getHeaders());
-        // $this->_curl->get($this->getCompositeProductApi());
-        // $response = $this->_curl->getBody();
-        // $composite = json_decode($response, true);
-        // foreach ($composite['composite_items'] as $product) {
-        //     $compositeSKU[] = $product['sku'];
-        // }
-
-        $this->_curl->setHeaders($this->getHeaders());
-        $this->_curl->get($this->getConfigurableProductApi());
-        $response = $this->_curl->getBody();
-        $configurable = json_decode($response, true);
-        // echo "<pre>";print_r($Configurable);die;
-            
-        if (isset($configurable['itemgroups']) && count($configurable['itemgroups'])) {
-           $itemgroup = $configurable['itemgroups'];
-            foreach ($itemgroup as $config_product) {
-                $zoho_group_id =  $config_product['group_id'];
-                $zoho_product_id =  $config_product['group_name'];
-                $zoho_product_description =  $config_product['description'];
-                $zoho_attribute_name1 =  $config_product['attribute_name1'];
-                $zoho_attribute_name2 =  $config_product['attribute_name2'];
-                $zoho_attribute_name3 =  $config_product['attribute_name3'];
-                $all_atttribute = [];
-                $attribute_name1 = $this->isProductAttributeExists($zoho_attribute_name1);
-                if (!is_null($zoho_attribute_name2)) {
-                    $attribute_name2 = $this->isProductAttributeExists($zoho_attribute_name2);
-                }
-                if (!is_null($zoho_attribute_name3)) {
-                    $attribute_name3 = $this->isProductAttributeExists($zoho_attribute_name3);
-                }
-                foreach($config_product['items'] as $item) {
-                    echo "<pre>";print_r($item);
-                    $sku[] = $item['sku']; 
-                    // echo $this->createSimpleProduct($item);
-                }
-                print_r($sku);die;
+    public function VirtualItemsImport() {
+        $productData = $this->_productloader->create();
+        $zoho_unit = $this->scopeConfig->getValue('general/locale/weight_unit', ScopeInterface::SCOPE_STORE);
+        $productCollection = $this->_productloader->create()->getCollection();
+        $filepath = 'export/virtualitems.csv';
+        $this->directory->create('export');
+        $stream = $this->directory->openFile($filepath, 'w+');
+        $stream->lock();
+        $header = ['Item Name', 'Sales Description', 'Selling Price','Sales Account','Unit','Product Type','SKU','Purchase Price','Purchase Account','Opening Stock','Opening Stock Value','Item Type'];
+        $stream->writeCsv($header);
+        foreach ($productCollection as $product) {
+            if ($product->getTypeId()=="downloadable" || $product->getTypeId()=="virtual" && $this->getParentProductId($product->getid())=="False"){
+                $productData = $productData->load($product->getId());
+                $qty = $productData->getQuantityAndStockStatus();
+                $product_type = [];
+                $product_type[] = $productData->getName();
+                $product_type[] = $productData->getDescription();
+                $product_type[] = $productData->getprice();
+                $product_type[] = SELF::VARIANTTYPE;
+                $product_type[] = $zoho_unit;
+                $product_type[] = "service";
+                $product_type[] = $productData->getSku();
+                $product_type[] = $productData->getprice();
+                $product_type[] = "Cost of Goods Sold";
+                $product_type[] = (!empty($productData->getInitialStock())) ? ($productData->getInitialStock()) : ("0");
+                $product_type[] = (!empty($productData->getInitialStock())) ? ($productData->getInitialStock()) : ("0");
+                $product_type[] = "Sales and Purchases";
+                $stream->writeCsv($product_type);
             }
-           die;
         }
+    }
 
-        if (isset($composite['composite_items']) && count($composite['composite_items']) > 0) {
-            foreach ($composite['composite_items'] as $composites) {
-                $compositeID = $composites['composite_item_id'];
-                $this->_curl->setHeaders($this->getHeaders());
-                $this->_curl->get($this->getCompositeProductApiById($compositeID));
-                $response = $this->_curl->getBody();
-                $composites = json_decode($response, true);
+    public function ItemsImport() {
+        $productData = $this->_productloader->create();
+        $zoho_unit = $this->scopeConfig->getValue('general/locale/weight_unit', ScopeInterface::SCOPE_STORE);
+        $productCollection = $this->_productloader->create()->getCollection();
+        $filepath = 'export/items.csv';
+        $this->directory->create('export');
+        $stream = $this->directory->openFile($filepath, 'w+');
+        $stream->lock();
+        $header = ['unit', 'item_type', 'product_type','description','name','rate','purchase_rate','initial_stock','initial_stock_rate','sku','weight'];
+        $stream->writeCsv($header);
+        foreach ($productCollection as $product) {
+            if ($product->getTypeId()=="simple" && $this->getParentProductId($product->getid())=="False"){
+                $productData = $productData->load($product->getid());
+                $qty = $productData->getQuantityAndStockStatus();
+                $product_type = [];
+                $product_type[] = $zoho_unit;
+                $product_type[] = self::INVENTORY;
+                $product_type[] = self::PRODUCTTYPE;
+                $product_type[] = strip_tags(str_replace('&nbsp;', ' ', $productData->getDescription()));
+                $product_type[] = $productData->getName();
+                $product_type[] = $productData->getprice();
+                $product_type[] = $productData->getprice();
+                $product_type[] = 0;
+                $product_type[] = 0;
+                $product_type[] = $productData->getSku();
+                $product_type[] = $productData->getWeight();
+                $stream->writeCsv($product_type);
+            }
+        }
+    }
 
-                $compositeData['composite_item_id'] = $composites['composite_item']['composite_item_id'];
-                $compositeData['sku'] = $composites['composite_item']['sku'];
-                $compositeData['name'] = $composites['composite_item']['name'];
-                $compositeData['rate'] = $composites['composite_item']['rate'];
-                $compositeData['description'] = $composites['composite_item']['description'];
-                $compositeData['available_stock'] = $composites['composite_item']['available_stock'];
-                $compositeData['mapped_items'] = $composites['composite_item']['mapped_items'];
-                $ass = [];
-                foreach ($compositeData['mapped_items'] as $associateItems) {
-                    $ass[] = $associateItems['sku'];
-                }
-
-                if (!in_array($compositeData['composite_item_id'], $ZohoGroupedProductId)) {
-                    try {
-                        $product = $this->_productloader->create();
-                        $product->setzohoproatt($compositeData['composite_item_id']);
-                        $product->setsku($compositeData['sku']);
-                        $product->settype_id('grouped');
-                        $product->setstatus(1);
-                        $product->setprice_type(0);
-                        $product->setsetShipmentType(0);
-                        $product->setname($compositeData['name']);
-                        $product->setdescription($compositeData['description']);
-                        $product->setvisibility(4);
-                        $product->setAttributeSetId(4);
-                        $product->setWebsiteIds(array(1));
-                        $product->setTaxClassId(0);
-
-                        $product->save();
-
-                        $latestProductSku = $product->getsku();
-
-                        $categoryIds = array(2);
-                        $this->categoryLink->assignProductToCategories($latestProductSku, $categoryIds);
-
-                        $stockItem = $this->stockRegistry->getStockItemBySku($latestProductSku);
-                        $stockItem->setQty($compositeData['available_stock']);
-                        $stockItem->setIsInStock((bool) $compositeData['available_stock']);
-                        $this->stockRegistry->updateStockItemBySku($latestProductSku, $stockItem);
-
-                        $associated_array = [];
-                        $associated_product_position = 0;
-
-                        foreach ($ass as $asso) {
-                            $productId = $this->_modelProductFactory->getIdBySku($asso);
-                            $product_repository_interface = $this->_ProductRepositoryInterface->getById($productId);
-                            $product_link_interface = $this->_ProductLinkInterface->create();
-                            $product_link_interface->setSku($product->getSku())
-                                ->setLinkType('associated')
-                                ->setLinkedProductSku($product_repository_interface->getSku())
-                                ->setLinkedProductType($product_repository_interface->getTypeId())
-                                ->setPosition($associated_product_position)
-                                ->getExtensionAttributes()
-                                ->setQty(1);
-                            $associated_array[] = $product_link_interface;
-                            $associated_product_position++;
-                            $product->setProductLinks($associated_array);
-                            $product->save();
-                        }
-                        if ($product->getId()) {
-                            echo "Grouped Product Created Successfully";
-                        }
-                    } catch (Exception $e) {
-                        return "We can't able to create Grouped Product now." . $e->getMessage();
-                    }
-                }
-
-                if (in_array($compositeData['composite_item_id'], $ZohoGroupedProductId)) {
-                    try {
-                        $product = $this->_modelProductFactory->load($MagentoGroupedId[$compositeData['composite_item_id']]);
-                        $product->setzohoproatt($compositeData['composite_item_id']);
-                        $product->setsku($compositeData['sku']);
-                        $product->settype_id('grouped');
-                        $product->setstatus(1);
-                        $product->setprice_type(0);
-                        $product->setsetShipmentType(0);
-                        $product->setname($compositeData['name']);
-                        $product->setdescription($compositeData['description']);
-                        $product->setvisibility(4);
-                        $product->setAttributeSetId(4);
-                        $product->setWebsiteIds(array(1));
-                        $product->setTaxClassId(0);
-                        $product->save();
-
-                        $latestProductSku = $product->getsku();
-
-                        $categoryIds = array(2);
-                        $this->categoryLink->assignProductToCategories($latestProductSku, $categoryIds);
-
-                        $stockItem = $this->stockRegistry->getStockItemBySku($latestProductSku);
-                        $stockItem->setQty($compositeData['available_stock']);
-                        $stockItem->setIsInStock((bool) $compositeData['available_stock']);
-                        $this->stockRegistry->updateStockItemBySku($latestProductSku, $stockItem);
-
-                        $associated_array = [];
-                        $associated_product_position = 0;
-
-                        foreach ($ass as $asso) {
-
-                            $productId = $this->_modelProductFactory->getIdBySku($asso);
-                            $product_repository_interface = $this->_ProductRepositoryInterface->getById($productId);
-                            $product_link_interface = $this->_ProductLinkInterface->create();
-                            $product_link_interface->setSku($product->getSku())
-                                ->setLinkType('associated')
-                                ->setLinkedProductSku($product_repository_interface->getSku())
-                                ->setLinkedProductType($product_repository_interface->getTypeId())
-                                ->setPosition($associated_product_position)
-                                ->getExtensionAttributes()
-                                ->setQty(1);
-                            $associated_array[] = $product_link_interface;
-                            $associated_product_position++;
-                            $product->setProductLinks($associated_array);
-                            $product->save();
-                        }
-                        if ($product->getId()) {
-                            echo "Grouped Product Updated Successfully";
-                        }
-                    } catch (Exception $e) {
-                        return "We can't able to create Grouped Product now." . $e->getMessage();
-                    }
-                }
+    public function ItemGroupImport(){
+        $ProductModel = $this->_productloader->create();
+        $productCollection = $this->_productloader->create()->getCollection();
+        $filepath = 'export/itemsGroup.csv';
+        $this->directory->create('export');
+        $stream = $this->directory->openFile($filepath, 'w+');
+        $stream->lock();
+        $header = ['Product Name', 'unit', 'description','AttributeName1','AttributeName2','AttributeName3','Variant Type','Product Type','Variant Name','Variant Description','Selling Price','SKU','Purchase Price','AttributeOption1',"AttributeOption2",'AttributeOption3','Opening Stock','Opening Stock Value'];
+        $stream->writeCsv($header);
+        $unit = $this->scopeConfig->getValue('general/locale/weight_unit', ScopeInterface::SCOPE_STORE);
+        foreach($productCollection as $productnew) {
+            if ($productnew->getTypeId()=="configurable") {
+                $new_id[] = $productnew->getId();
             }
         }
 
-        if (isset($Configurable['itemgroups']) && count($Configurable['itemgroups']) > 0) {
-            foreach ($Configurable['itemgroups'] as $configurables) {
-                $configurableID = $configurables['group_id'];
-                $this->_curl->setHeaders($this->getHeaders());
-                $this->_curl->get($this->getConfigurableProductApiById($configurableID));
-                $response = $this->_curl->getBody();
-                $Configurables = json_decode($response, true);
-                echo "<pre>";
-                echo "TESTDATA123";
-                print_r($Configurable);die;
-
-                $ConfigurableData['group_id'] = $Configurables['item_group']['group_id'];
-                $ConfigurableData['group_name'] = $Configurables['item_group']['group_name'];
-                $ConfigurableData['description'] = $Configurables['item_group']['description'];
-
-                $ConfigurableData['attributes'] = $Configurables['item_group']['attributes'];
-                $attrName = [];
-                $attrOptions = [];
-                foreach ($ConfigurableData['attributes'] as $attributesZoho) {
-                    $attrName[] = $attributesZoho['name'];
-                    // $attrOptions[] = $attributesZoho['options'];
+        foreach($new_id as $productnew) {
+            $product = $ProductModel->load($productnew);
+            $parent_name = $product->getName();
+            $child_products = $product->getTypeInstance()->getUsedProducts($product);
+            $data = $product->getTypeInstance()->getConfigurableOptions($product);
+            $options = array();
+            foreach($data as $attr){
+                foreach($attr as $p){
+                    $title[] = $p['attribute_code'];
+                    $options[$p['sku']][$p['attribute_code']] = $p['option_title'];
                 }
-
-                // $options = [];
-                // foreach ($attrName as $attrNames) {
-                //     $options[] = [
-                //         [
-                //             'title' => $attrNames,
-                //             'type' => 'drop_down',
-                //             'is_required' => 1,
-                //             'sort_order' => 0,
-                //         ],
-                //     ];
-                // }
-
-                $options = [
-                    [
-                        'title' => 'New',
-                        'type' => 'drop_down',
-                        'is_required' => 1,
-                        'sort_order' => 0,
-                        'values' => [
-                            [
-                                'title' => 'Blue',
-                                'price' => 10.50,
-                                'price_type' => 'fixed',
-                                'sku' => '',
-                                'sort_order' => 0,
-                            ],
-                        ],
-                    ],
-                    [
-                        'title' => 'New_Two',
-                        'type' => 'drop_down',
-                        'is_required' => 1,
-                        'sort_order' => 0,
-                        'values' => [
-                            [
-                                'title' => 'S',
-                                'price' => 0,
-                                'price_type' => 'fixed',
-                                'sku' => '',
-                                'sort_order' => 0,
-                            ],
-                        ],
-                    ],
-                ];
-
-                // print_r($attrOptions);die;
-                // $attrOptionsDatas = [];
-                // foreach ($attrOptions as $attrOptionsData) {
-                //     $attrOptionsDatas[] = $attrOptionsData['name'];
-                // }
-
-                $ConfigurableData['items'] = $Configurables['item_group']['items'];
-                $assGroupSku = [];
-                $assGroupRate = [];
-                foreach ($ConfigurableData['items'] as $associateItemsGroup) {
-                    $assGroupSku[] = $associateItemsGroup['sku'];
-                    $assGroupRate[] = $associateItemsGroup['rate'];
+            }
+            foreach($options as $sku =>$d){
+                $child_product = $product->loadByAttribute('sku', $sku);
+                $childId = $child_product->getEntityId();
+                $child_product =  $ProductModel->load($childId);
+                $qty = $child_product->getQuantityAndStockStatus();
+                foreach($d as $key=>$value) {
+                    $attribute_value[] = $value;
+                    $attribute_key[] = $key;
                 }
-                foreach ($assGroupSku as $assoGroup) {
-                    $configProductId[] = $this->_modelProductFactory->getIdBySku($assoGroup);
+                $count_total_attribute_key = count(array_unique($attribute_key));
+                $count_total_attribute_value = count(array_unique($attribute_value));
+                $product_type = [];
+                $product_type[] = $parent_name;
+                $product_type[] = $unit;
+                $product_type[] = $product->getDescription();
+                $product_type[] = $attribute_key[0];
+                $product_type[] = ($count_total_attribute_key>=2) ? ($attribute_key[1]) : (" ");
+                $product_type[] = ($count_total_attribute_key==3) ? ($attribute_key[2]) : (" ");
+                $product_type[] = self::VARIANTTYPE;
+                $product_type[] = self::PRODUCTTYPE;
+                $product_type[] = $child_product->getName();
+                $product_type[] = $child_product->getDescription();
+                $product_type[] = (!empty($child_product->getPrice())) ? ($child_product->getPrice()) : (0);
+                $product_type[] = $sku;
+                $product_type[] = (!empty($child_product->getPrice())) ? ($child_product->getPrice()) : (0);
+                $product_type[] = $d[$attribute_key[0]];
+                $product_type[] = ($count_total_attribute_key>=2) ? ($d[$attribute_key[1]]) : (" ");
+                $product_type[] = ($count_total_attribute_key==3) ? ($d[$attribute_key[2]]) : (" ");
+                $product_type[] = $qty['qty'];
+                $product_type[] = $qty['qty'];
+                $stream->writeCsv($product_type);
+            }
+        } 
+    }
+
+    public function CompositeImport() {
+        $productData = $this->_productloader->create();
+        $zoho_unit = $this->scopeConfig->getValue('general/locale/weight_unit', ScopeInterface::SCOPE_STORE);
+        $productCollection = $this->_productloader->create()->getCollection();
+        $filepath = 'export/compositeitem.csv';
+        $this->directory->create('export');
+        $stream = $this->directory->openFile($filepath, 'w+');
+        $stream->lock();
+        $header = ['Composite Item Name','Selling Price', 'Product Type','Unit','SKU','Purchase Price','Opening Stock','Opening Stock Value','Status','Purchase Account','Inventory Account','Mapped Item Name','Mapped Quantity'];
+        $stream->writeCsv($header);
+        
+        foreach ($productCollection as $product) {
+            if ($product->getTypeId()=="grouped" && $this->getParentProductId($product->getid())=="False"){
+                $productData = $productData->load($product->getId());
+                $name = $productData->getName();
+                $sku = $productData->getsku();
+                $qty = $productData->getInitialStock();
+                $_children = $product->getTypeInstance()->getAssociatedProducts($product);
+                foreach ($_children as $child) {
+                    $childproductData = $productData->load($child->getId());
+                    $childqty = $childproductData->getQuantityAndStockStatus();
+                    $product_type = [];
+                    $product_type[] = $name;
+                    $product_type[] = $childproductData->getPrice();
+                    $product_type[] = SELF::PRODUCTTYPE;
+                    $product_type[] = $zoho_unit;
+                    $product_type[] = $sku;
+                    $product_type[] = $childproductData->getPrice();
+                    $product_type[] = (!empty($qty)) ? ($qty) : ("0");
+                    $product_type[] = (!empty($qty)) ? ($qty) : ("0");
+                    $product_type[] = $productData->getStatus();
+                    $product_type[] = "Cost of Goods Sold";
+                    $product_type[] = SELF::INVENTORYASSET;
+                    $product_type[] = $child->getName();
+                    $product_type[] = $childqty['qty'];
+                    $stream->writeCsv($product_type);
                 }
+            }
+        }
+    }
 
-                if (!in_array($ConfigurableData['group_id'], $ZohoSimpleProductId)) {
-                    try {
-                        $product = $this->_productloader->create();
-
-                        $product->setzoho_data($ConfigurableData['group_id']);
-                        $product->setname($ConfigurableData['group_name']);
-                        $product->setsku($ConfigurableData['group_name']);
-                        $product->setprice($assGroupRate);
-                        $product->settype_id('configurable');
-                        $product->setstatus(1);
-                        $product->setdescription($ConfigurableData['description']);
-                        $product->setvisibility(4);
-                        $product->setAttributeSetId(4);
-                        $product->setWebsiteIds(array(1));
-                        $product->setTaxClassId(0);
-                        $product->setStockData(array(
-                            'use_config_manage_stock' => 0,
-                            'manage_stock' => 1,
-                            'is_in_stock' => 1,
-                        )
-                        );
-
-                        $product->save();
-
-                        $latestProductSku = $product->getsku();
-
-                        $associated_array = [];
-                        $associated_product_position = 0;
-
-                        foreach ($options as $arrayOption) {
-                            $product->setHasOptions(1);
-                            $product->getResource()->save($product);
-                            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-                            $option = $objectManager->create('\Magento\Catalog\Model\Product\Option')
-                                ->setProductId($product->getId())
-                                ->setStoreId($product->getStoreId())
-                                ->addData($arrayOption);
-                            $option->save();
-                            $product->addOption($option);
-                        }
-
-                        foreach ($configProductId as $config_product_id) {
-
-                            $product_repository_interface = $this->_ProductRepositoryInterface->getById($config_product_id);
-                            $product_link_interface = $this->_ProductLinkInterface->create();
-                            $product_link_interface->setSku($product->getSku())
-                                ->setLinkType('associated')
-                                ->setLinkedProductSku($product_repository_interface->getSku())
-                                ->setLinkedProductType($product_repository_interface->getTypeId())
-                                ->setPosition($associated_product_position)
-                                ->getExtensionAttributes()
-                                ->setQty(1);
-                            $associated_array[] = $product_link_interface;
-                            $associated_product_position++;
-                            $product->setProductLinks($associated_array);
-                            $product->save();
-                        }
-                        if ($product->getId()) {
-                            echo "Configurable Product Created Successfully";
-                        }
-                    } catch (Exception $e) {
-                        return "We can't able to create Configurable Product now." . $e->getMessage();
+    public function BundleImport() {
+        $productData = $this->_productloader->create();
+        $zoho_unit = $this->scopeConfig->getValue('general/locale/weight_unit', ScopeInterface::SCOPE_STORE);
+        $productCollection = $this->_productloader->create()->getCollection();
+        $filepath = 'export/bundleitem.csv';
+        $this->directory->create('export');
+        $stream = $this->directory->openFile($filepath, 'w+');
+        $stream->lock();
+        $header = ['Composite Item Name','Selling Price', 'Product Type','Unit','SKU','Purchase Price','Opening Stock','Opening Stock Value','Status','Purchase Account','Inventory Account','Mapped Item Name','Mapped Quantity'];
+        $stream->writeCsv($header);
+        
+        foreach ($productCollection as $product) {
+            if ($product->getTypeId() == 'bundle') {
+                $typeInstance = $product->getTypeInstance();
+                $productData = $productData->load($product->getId());
+                $prentName = $productData->getName();
+                $qty = $productData->getInitialStock();
+                $Sku = $productData->getSku();
+                $requiredChildrenIds = $typeInstance->getChildrenIds($product->getId(), false);
+                foreach ($requiredChildrenIds as $Childrenkey => $Childrenvalue) {
+                    foreach ($Childrenvalue as $key => $value) {
+                        $child = $productData->load($value);
+                        $childqty = $child->getQuantityAndStockStatus();
+                        $product_type = [];
+                        $product_type[] = $prentName;
+                        $product_type[] = $child->getPrice();
+                        $product_type[] = self::PRODUCTTYPE;
+                        $product_type[] = $zoho_unit;
+                        $product_type[] = $Sku;
+                        $product_type[] = $child->getPrice();
+                        $product_type[] = $qty;
+                        $product_type[] = $qty;
+                        $product_type[] = $child->getStatus();
+                        $product_type[] = "Cost of Goods Sold";
+                        $product_type[] = self::INVENTORYASSET;
+                        $product_type[] = $child->getName();
+                        $product_type[] = $childqty['qty'];
+                        $stream->writeCsv($product_type);
                     }
                 }
             }
         }
     }
 
-    public function createSimpleProduct($item)
-    {
-        $status = $item['status'];
-        if ($status=='active') {
-            $status = "1";
-        } else {
-            $status = "0";
-        }
-        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-        $product = $objectManager->create('\Magento\Catalog\Model\Product');
-        $product->setSku($item['sku']);
-        $product->setName($item['name']);
-        $product->setAttributeSetId(4); 
-        $product->setStatus($status); 
-        $product->setWeight(10);
-        $product->setVisibility(4);
-        $product->setTaxClassId(0);
-        $product->setTypeId('simple');
-        $product->setPrice($item['rate']);
-        $product->setStockData(
-            array(
-                'use_config_manage_stock' => 0,
-                'manage_stock' => 1,
-                'is_in_stock' => 1,
-                'qty' => $item['initial_stock']
-            )
-        );
-        $product->save();
-    }
-
-    public function isProductAttributeExists($field)
-    {
-        $attr = $this->_eavConfig->getAttribute("catalog_product",$field);
-        if (!is_null($attr->getId())) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    public function cretaeNewAttribute()
-    {
-    }
-
-    public function SalesOrderApi()
-    {
+    public function SalesOrderApi() {
         return "Sales Order Api";
     }
 
-    public function getCustomerApi()
-    {
-        return self::CUSTOMER_API . '?organization_id=' .
-        $this->scopeConfig->getValue('zohointegration/department/organization_id');
+    public function createCustomer($customer_id) {
+        $i = 1;
+        foreach ($customer_id as $customerId) {
+            $customer = $this->_customerloader->create()->load($customerId);
+            if(empty($customer->getZohoCustomerId()) || $customer->getZohoCustomerId()==123456) {
+                $shipAdd = $this->getCustomerShippingAddress($customer);
+                $billAdd = $this->getCustomerBillingAddress($customer);
+                $customer_name = $customer->getFirstname() .' '. $customer->getLastname();
+                $telephone = " ";
+                if($customer->getDefaultShippingAddress()!=Null){
+                    $telephone = $customer->getDefaultShippingAddress()->getData('telephone');
+                }
+                if($customer->getDefaultBillingAddress()!=Null){
+                    $telephone = $customer->getDefaultBillingAddress()->getData('telephone');
+                }
+                $customer_name_info = [[
+                    "first_name"=> $customer->getFirstname(),
+                    "last_name"=> $customer->getLastname(),
+                    "email"=> $customer->getEmail(),
+                    "phone"=> $telephone,
+                    "mobile"=> $telephone,
+                    "is_primary_contact"=> true
+                ]];
+                $customer_api_list = [
+                    "contact_name" => $customer_name,
+                    "contact_type" => "customer",
+                    "contact_persons" => $customer_name_info
+                ];
+                if ($shipAdd!=NULL) {
+                    $customer_api_list['company_name'] = $customer->getDefaultShippingAddress()->getData('company');
+                    $customer_api_list['shipping_address'] = $shipAdd;                    
+                } 
+                if ($billAdd!=NULL) {
+                    $customer_api_list['company_name'] = $customer->getDefaultShippingAddress()->getData('company');
+                    $customer_api_list['billing_address'] = $billAdd;                    
+                }
+
+                try {
+                    $this->_curl->setHeaders($this->_token->getHeaders());
+                    $this->_curl->post($this->getCustomerApi(), json_encode($customer_api_list));
+                    $response = $this->_curl->getBody();
+                    $response = json_decode($response, true);
+                    if (isset($response['contact']['contact_id'])) {
+                        $this->_Api->zohoId($customer->getEmail(),$response['contact']['contact_id']);
+                        $this->_customLogger->info($customer->getEmail().'Customer create message');
+                    }  
+                } catch (\Exception $e) {
+
+                }
+            } else {
+                $shipAdd = $this->getCustomerShippingAddress($customer);
+                $billAdd = $this->getCustomerBillingAddress($customer);
+                $customer_name = $customer->getFirstname() .' '. $customer->getLastname();
+                $telephone = " ";
+                if($customer->getDefaultShippingAddress()!=Null){
+                    $telephone = $customer->getDefaultShippingAddress()->getData('telephone');
+                }
+                if($customer->getDefaultBillingAddress()!=Null){
+                    $telephone = $customer->getDefaultBillingAddress()->getData('telephone');
+                }
+                $customer_name_info = [[
+                    "first_name"=> $customer->getFirstname(),
+                    "last_name"=> $customer->getLastname(),
+                    "email"=> $customer->getEmail(),
+                    "phone"=> $telephone,
+                    "mobile"=> $telephone,
+                    "is_primary_contact"=> true
+                ]];
+                $customer_api_list = [
+                    "contact_name" => $customer_name,
+                    "contact_type" => "customer",
+                    "contact_persons" => $customer_name_info
+                ];
+                if ($shipAdd!=NULL) {
+                    $customer_api_list['company_name'] = $customer->getDefaultShippingAddress()->getData('company');
+                    $customer_api_list['shipping_address'] = $shipAdd;                    
+                } 
+                if ($billAdd!=NULL) {
+                    $customer_api_list['company_name'] = $customer->getDefaultShippingAddress()->getData('company');
+                    $customer_api_list['billing_address'] = $billAdd;                    
+                }
+                $url = $this->getCustomerPutApi($customer->getzohoCustomerId());
+                $this->_Api->makeApiRequest($url,"{'contact_persons': [{'email': '',}]}","PUT");
+                $this->_Api->makeApiRequest($url,json_encode($customer_api_list),"PUT");
+            }
+        }
     }
 
-    public function getCustomerApiById($ID)
-    {
-        return self::CUSTOMER_API . '/' . $ID . '?organization_id=' .
-        $this->scopeConfig->getValue('zohointegration/department/organization_id');
+    public function getCustomerShippingAddress($customer) {
+        $shippingaddress = $customer->getDefaultShippingAddress();
+
+        if($shippingaddress!=NULL) {
+            $shipping_address = [
+                "attention" => $customer->getName(),
+                "address"=> $shippingaddress->getData('street') ,
+                "street2"=> $shippingaddress->getData('street'),
+                "city"=>$shippingaddress->getData('city'),
+                "state"=> $shippingaddress->getData('region'),
+                "zip"=>$shippingaddress->getData('postcode'),
+                "country"=>$shippingaddress->getData('country_id')
+            ];
+            return $shipping_address;
+        }
     }
 
-    public function getProductApi()
-    {
-        return self::ITEM_API . '?organization_id=' .
-        $this->scopeConfig->getValue('zohointegration/department/organization_id');
+    public function getCustomerBillingAddress($customer) {
+        
+        $billingaddress = $customer->getDefaultBillingAddress();
+
+        if($billingaddress!=NULL) {
+            $billing_address = [
+                "attention"=> $customer->getName(),
+                "address"=>$billingaddress->getData('street') ,
+                "street2"=> $billingaddress->getData('street'),
+                "city"=>$billingaddress->getData('city'),
+                "state"=> $billingaddress->getData('region'),
+                "zip"=>$billingaddress->getData('postcode'),
+                "country"=> $billingaddress->getData('country_id')
+            ];
+            return $billing_address;
+    
+        }
     }
 
-    public function getCompositeProductApi()
-    {
-        return self::COMPOSITETEM_API . '?organization_id=' .
-        $this->scopeConfig->getValue('zohointegration/department/organization_id');
-    }
-
-    public function getCompositeProductApiById($compositeID)
-    {
-        return self::COMPOSITETEM_API . '/' . $compositeID . '?organization_id=' .
-        $this->scopeConfig->getValue('zohointegration/department/organization_id');
-    }
-
-    public function getConfigurableProductApi()
-    {
-        return self::ITEMGRP_API . '?organization_id=' .
-        $this->scopeConfig->getValue('zohointegration/department/organization_id');
-    }
-
-    public function getConfigurableProductApiById($configurableID)
-    {
-        return self::ITEMGRP_API . '/' . $configurableID . '?organization_id=' .
-        $this->scopeConfig->getValue('zohointegration/department/organization_id');
-    }
-
-    public function getStoreCode()
-    {
+    public function getStoreCode() {
         return $this->_storeManager->getStore()->getName();
     }
 
-    public function getWebsiteName($websiteId)
-    {
-        $collection = $this->_websiteModel->load($websiteId, 'website_id');
+    public function getItemeditApi(){
+        return self::ITEMEDIT_API ;
+    }
+
+    public function getWebsiteName($websiteId) {
+        $collection = $this->_websiteModel->load($websiteId,'website_id');
         return $collection->getName();
     }
 
-    public function getHeaders()
-    {
-        $refress = $this->scopeConfig->getValue('zohointegration/department/refress_token');
-        $client = $this->scopeConfig->getValue('zohointegration/department/client_id');
-        $cs = $this->scopeConfig->getValue('zohointegration/department/client_secret');
-        $redirect = $this->scopeConfig->getValue('zohointegration/department/redirect_uri');
-        $url = self::TOKEN . $refress . "&client_id=" .
-            $client . "&client_secret=" . $cs . "&redirect_uri=" . $redirect . "&grant_type=refresh_token";
-        $this->_curl->post($url, " ");
-        $response = $this->_curl->getBody();
-        $response = json_decode($response);
-        $foodArray = (array) $response;
-        $access_token = $foodArray['access_token'];
-        return ["Authorization" => "Zoho-oauthtoken " . $access_token,
-            "Content-Type" => "application/json",
-            "Cache-Control" => "no-cache",
-        ];
+    public function getorg(){
+        return $this->scopeConfig->getValue('zohointegration/department/organization_id');
+    }
+
+    public function getCustomerApi() {
+        return self::CUSTOMER_API.'?organization_id='.
+        $this->scopeConfig->getValue('zohointegration/department/organization_id');
+    }
+
+    public function getCustomerPutApi($id) {
+        return self::CUSTOMER_API.'/'.$id.'?organization_id='.
+        $this->scopeConfig->getValue('zohointegration/department/organization_id');
+    }
+
+    public function getItemApi(){
+        return self::ITEM_API . '?organization_id='.
+        $this->scopeConfig->getValue('zohointegration/department/organization_id');
+    }
+
+    public function getParentProductId($childProductId) {
+        $parentConfigObject = $this->configurable->getParentIdsByChild($childProductId);
+	    if($parentConfigObject) {
+		    return $parentConfigObject[0];
+	    }else {
+            $info = "False";
+            return $info;
+        }
     }
 }

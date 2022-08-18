@@ -3,79 +3,83 @@
 <input name="total_count" id="total_count" value="0" type="hidden" />
 <input name="request" id="request" type="hidden" value="1" />
 <div class="success-message" style="display:none;"></div>
-<div class="sync-progress" style="background: #ddd; margin: 15px 0;">
-  <div id="sync-progress-report" style="background: green;width: 0%; display: inline-block; color:#fff;text-align: center;  "></div>
+<div class="message message-success success" style="display:none;">
+    <div data-ui-id="messages-message-success">Csv File Created Successfully.</div>
 </div>
 
-<center>
     <div class="actions-toolbar">
         <div class="primary">
             <input type="hidden" name="hideit" id="hideit" value="" />
             <button type="button" id="ajax-customers-id" title="<?php /* @escapeNotVerified */ echo __('Submit') ?>" class="action submit primary">
-                <span><?php /* @escapeNotVerified */ echo __('Import Customers') ?></span>
+                <span><?= __('Import Customers') ?></span>
             </button>
-            <button type="button" id="ajax-products-id" title="<?php /* @escapeNotVerified */ echo __('Submit') ?>" class="action submit primary">
-                <span><?php /* @escapeNotVerified */ echo __('Import Products') ?></span>
-            </button>
-            <button type="button" id="ajax-salesorders-id" title="<?php /* @escapeNotVerified */ echo __('Submit') ?>" class="action submit primary">
-                <span><?php /* @escapeNotVerified */ echo __('Import Sales Orders') ?></span>
+            <button type="button" id="ajax-product-id" title="<?php /* @escapeNotVerified */ echo __('Submit') ?>" class="action submit primary">
+                <span><?= __('Import Product') ?></span>
             </button>
         </div>
     </div>
-</center>
 
  <script>
-    require(['jquery', 'jquery/ui'], function($){
-        function customers() {
-        var ajaxRequest;
-        ajaxRequest = jQuery.ajax({
-            url: "<?php echo $this->getAjaxCustomersUrl(); ?>",
-            data: {form_key: window.FORM_KEY},
-            type:'POST',
-            dataType: 'json',
-            onSuccess: function(transport) {
-                var response = JSON.parse(transport.responseText);
-                console.log(transport);
-            }
-        });
-    }
-        jQuery('#ajax-customers-id').click(function () {
+    require(['jquery', 'jquery/ui'], function($) {
+
+        jQuery('#ajax-customers-id').click(function() {
             customers();
-    });
+        });
+
+        jQuery('#ajax-product-id').click(function() {
+            products();
+        });
+
+        jQuery('#ajax-salesorders-id').click(function() {
+            salesorders();
+        });
+
+        function customers() {
+            var ajaxRequest;
+            ajaxRequest = jQuery.ajax({
+                url: "<?php echo $this->getAjaxCustomersUrl(); ?>",
+                data: {
+                    form_key: window.FORM_KEY
+                },
+                type: 'POST',
+                dataType: 'json',
+                success: function(transport) {
+                    var response = JSON.parse(transport.responseText);
+                    console.log(transport);
+                }
+            });
+        }
 
         function products() {
-        var ajaxRequest;
-        ajaxRequest = jQuery.ajax({
-            url: "<?php echo $this->getAjaxProductsUrl(); ?>",
-            data: {form_key: window.FORM_KEY},
-            type:'POST',
-            dataType: 'json',
-            onSuccess: function(transport) {
-                var response = JSON.parse(transport.responseText);
-                console.log(transport);
-            }
-        });
-    }
-        jQuery('#ajax-products-id').click(function () {
-            products();
-    });
+            var ajaxRequest;
+            ajaxRequest = jQuery.ajax({
+                url: "<?php echo $this->getAjaxProductsUrl(); ?>",
+                data: {
+                    form_key: window.FORM_KEY
+                },
+                type: 'POST',
+                dataType: 'json',
+                success: function(transport) {
+                    // var response = JSON.parse(transport.responseText);
+                    $(".message-success").css("display", "Block");
+                }
+            });
+        }
 
         function salesorders() {
-        var ajaxRequest;
-        ajaxRequest = jQuery.ajax({
-            url: "<?php echo $this->getAjaxSalesOrdersUrl(); ?>",
-            data: {form_key: window.FORM_KEY},
-            type:'POST',
-            dataType: 'json',
-            success: function(transport) {
-                var response = JSON.parse(transport.responseText);
-                console.log(transport);
-            }
-        });
-    }
-        jQuery('#ajax-salesorders-id').click(function () {
-            salesorders();
-    });
-
+            var ajaxRequest;
+            ajaxRequest = jQuery.ajax({
+                url: "<?php echo $this->getAjaxSalesOrdersUrl(); ?>",
+                data: {
+                    form_key: window.FORM_KEY
+                },
+                type: 'POST',
+                dataType: 'json',
+                success: function(transport) {
+                    var response = JSON.parse(transport.responseText);
+                    console.log(transport);
+                }
+            });
+        }
     });
 </script>

@@ -41,9 +41,7 @@ class CreateItem implements ObserverInterface
         $zohoprice = $product->getprice();
         $edit = $product->getedit();
         if ($edit=="12345") {
-
             $type_id = $product->gettype_id();
-
             if ($type_id=="simple") {
                 $this->_Api->SimpleProduct($product);
             } elseif ($type_id=="configurable") {
@@ -67,7 +65,7 @@ class CreateItem implements ObserverInterface
                 'general/locale/weight_unit',
                 ScopeInterface::SCOPE_STORE
             );
-            $id   = $product->getId();
+            $id = $product->getId();
             $ProductModel = $this->_productloader->create();
             $ProductModel->load($id);
             $producttype = $ProductModel->gettype_id();

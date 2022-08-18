@@ -23,6 +23,7 @@ class Api extends \Magento\Framework\Model\AbstractModel
         \Magento\Catalog\Model\ProductFactory $_productloader,
         \Magento\Framework\HTTP\Client\Curl $curl,
         ScopeConfigInterface $scopeConfig,
+        \Elsnertech\Zohointegration\Logger\Logger $customLogger,
         \Magento\Sales\Model\OrderFactory $orderFactory,
         \Magento\Customer\Model\CustomerFactory $_customerloader
     ) {
@@ -31,6 +32,7 @@ class Api extends \Magento\Framework\Model\AbstractModel
         $this->_orderFactory = $orderFactory;
         $this->_customerRepositoryInterface = $customerRepositoryInterface;
         $this->_customerloader = $_customerloader;
+        $this->_customLogger = $customLogger;
         $this->_curl = $curl;
         $this->scopeConfig = $scopeConfig;
     }
@@ -44,6 +46,7 @@ class Api extends \Magento\Framework\Model\AbstractModel
         $data = $rid;
         $customerData = $CustomerModel->getDataModel();
         $customerData->setCustomAttribute('zoho_id', $data);
+        $customerData->setCustomattribute('zoho_customer_id', $data);
         $CustomerModel->updateData($customerData);
         $CustomerModel->save();
     }
@@ -134,8 +137,7 @@ class Api extends \Magento\Framework\Model\AbstractModel
         unset($ch);
     }
 
-    function simpleProduct($product)
-    {
+    public function simpleProduct($product) {
         $p_id = $product->getid();
         $ProductModel = $this->_productloader->create();
         $ProductModel->load($p_id);
@@ -150,26 +152,22 @@ class Api extends \Magento\Framework\Model\AbstractModel
         } else {
             $product_type = "goods";
         }
-            $data = [
-                        
-                    "unit"=> $this->scopeConfig->getValue(
-                        'general/locale/weight_unit', ScopeInterface::
-                        SCOPE_STORE
-                    ),
-                    "item_type"=> "inventory",
-                    "product_type"=>  $product_type,
-                    "description"=> $description,
-                    "name"=> $p_name,
-                    "rate"=>$p_price,
-                    "purchase_rate"=> $p_price,
-                    "initial_stock"=> $p_qty,
-                    "initial_stock_rate"=> $p_qty,
-                    "sku"=> $p_sku
+            $data = [    
+                "unit"=> $this->scopeConfig->getValue('general/locale/weight_unit', ScopeInterface::SCOPE_STORE),
+                "item_type"=> "inventory",
+                "product_type"=>  $product_type,
+                "description"=> $description,
+                "name"=> $p_name,
+                "rate"=>$p_price,
+                "purchase_rate"=> $p_price,
+                "initial_stock"=> 0,
+                "initial_stock_rate"=> 0,
+                "sku"=> $p_sku
                 ];
-                $this->_curl->setHeaders($this->_helper->getHeaders());
-                $this->_curl->post($this->_helper->getItemApi(), json_encode($data));
-                $response = $this->_curl->getBody();
-                $response = json_decode($response, true);
+            $this->_curl->setHeaders($this->_helper->getHeaders());
+            $this->_curl->post($this->_helper->getItemApi(), json_encode($data));
+            $response = $this->_curl->getBody();
+            $response = json_decode($response, true);
             if (isset($response['item'])) {
                 $value = "Editmode";
                 $item = $response['item']['item_id'];
@@ -177,6 +175,7 @@ class Api extends \Magento\Framework\Model\AbstractModel
                 $prod = $product->load($p_id);
                 $prod-> setCustomattribute('zoho_data', $item);
                 $prod->setCustomattribute('edit', $value);
+                $this->_customLogger->info($prod->getName().'Product create message');
                 $prod->save();
             }
     }
@@ -211,8 +210,8 @@ class Api extends \Magento\Framework\Model\AbstractModel
             $x =0;
             $y =0;
             $z =0;
-                    $s1 = $a1[0];
-                    $cs1 = count($s1);
+            $s1 = $a1[0];
+            $cs1 = count($s1);
             foreach ($s1 as $c) {
                 if (isset($a1[1])) {
                             $s2 = $a1[1];
@@ -410,18 +409,16 @@ class Api extends \Magento\Framework\Model\AbstractModel
         $name = $product->getname();
         $sku = $product->getsku();
         $id = $p_id;
-        $collection = $product->getTypeInstance(true)->getSelectionsCollection(
-            $product->getTypeInstance(true)->getOptionsIds($product), $product
-        );
+        $collection = $product->getTypeInstance(true)->getSelectionsCollection($product->getTypeInstance(true)->getOptionsIds($product), $product);
 
         foreach ($collection as $item) {
-            $data = $objectManager->get('Magento\Catalog\Model\Product')->load($item->getid());
+            $data = $product->load($item->getid());
+            $qty = $data->getQuantityAndStockStatus();
             $compo[] = [
-                "quantity"=> $data['quantity_and_stock_status']['qty'],
-                "item_id"=> $data->getzoho_data()
+                "quantity"=> $qty['qty'],
+                "item_id"=> $data->getzohoData()
             ];
         }
-
         $composite =  [
             "name"=> $name,
             "mapped_items"=> $compo,

@@ -86,7 +86,6 @@ class ProductMassDelete implements ObserverInterface
                 if (isset($zoho)) {
                       $type = $pro->gettype_id();
                     if ($type=='simple') {
-                        $product = $this->_productloader->create();
                         $zohoproductid = $product->getzoho_data();
                         $update = [
                         "name"=> $product->getname(),

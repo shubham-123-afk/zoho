@@ -17,7 +17,6 @@ class Customers extends \Magento\Backend\App\Action
         \Elsnertech\Zohointegration\Model\ApiIntegration $apiintegrationl
     ) {
         parent::__construct($context);
-
         $this->_resultJsonFactory = $resultJsonFactory;
         $this->_apiintegrationl = $apiintegrationl;
     }

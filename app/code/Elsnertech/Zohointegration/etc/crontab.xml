@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Cron:etc/crontab.xsd">
+	<group id="default">
+		<job instance="Elsnertech\Zohointegration\Cron\CustomerSync" method="execute" name="zoho_inventory_cron">
+			<schedule>*/1 * * * *</schedule>
+		</job>
+	</group>
+	<group id="token">
+		<job instance="Elsnertech\Zohointegration\Cron\Token" method="execute" name="zoho_inventory_cron_new">
+			<schedule>* * * * *</schedule>
+		</job>
+	</group>
+</config>

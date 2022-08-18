@@ -12,8 +12,8 @@ use Magento\Store\Model\ScopeInterface;
 class Data extends AbstractHelper
 {
     const XML_PATH_TESTI = 'zohointegration/';
-    const SALES_ORDER = "https://inventory.zoho.com/api/v1/salesorders/";
-    const CUSTOMER_API = "https://inventory.zoho.com/api/v1/contacts/";
+    const SALES_ORDER = "https://inventory.zoho.com/api/v1/Curlsalesorders/";
+    const CUSTOMER_API = "https://inventory.zoho.com/api/v1/contacts";
     const ITEM_API     = "https://inventory.zoho.com/api/v1/items";
     const ITEMGRP_API  = "https://inventory.zoho.com/api/v1/itemgroups";
     const ITEMGRPDELETE_API = "https://inventory.zoho.com/api/v1/itemgroups/";
@@ -61,8 +61,8 @@ class Data extends AbstractHelper
         $response = $this->_curl->getBody();
         $response = json_decode($response);
         $foodArray = (array)$response;
-        $a =  $foodArray['access_token'];
-        return [ "Authorization" => "Zoho-oauthtoken ".$a,
+        // $a =  $foodArray['access_token'];
+        return [ "Authorization" => "Zoho-oauthtoken ".$this->scopeConfig->getValue('zohointegration/departmes/access_token'),
         "Content-Type" => "application/json",
         "Cache-Control"=>"no-cache"
         ];
