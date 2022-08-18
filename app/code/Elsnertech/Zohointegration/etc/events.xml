@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * @author Elsner Team
+ * @copyright Copyright (c) 2021 Elsner Technologies Pvt. Ltd (https://www.elsner.com/)
+ * @package Elsnertech_Zohointegration
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+  
+	    <event name='controller_action_catalog_product_save_entity_after'>
+	        <observer name='Elsnertech_Zohointegration_Product_Save_After' instance='Elsnertech\Zohointegration\Observer\CreateItem' />
+	    </event>
+  
+        <event name="customer_save_after">
+            <observer name="customer_save_after" instance="Elsnertech\Zohointegration\Observer\NewCustomercreate" />
+        </event>
+
+        <event name="controller_action_predispatch_customer_account_confirm">
+           <observer name="customer_account_after" instance="Elsnertech\Zohointegration\Observer\CustomerLogin" />
+        </event>
+            
+<!--         <event name="controller_action_predispatch_customer_address_new">
+           <observer name="customer_account_after" instance="Elsnertech\Zohointegration\Observer\Adminhtml\AfterAddressSaveObservers" />
+        </event>
+ -->
+        <event name="checkout_onepage_controller_success_action">
+            <observer name="Elsnertech_controller_success_action" instance="Elsnertech\Zohointegration\Observer\Adminhtml\SalesorderAfter" />
+        </event>
+
+		  <event name="customer_address_save_after">
+			   <observer name="customer_addres_after_save_viv_observer" instance="Elsnertech\Zohointegration\Observer\Adminhtml\AfterAddressSaveObserver" />
+		  </event>
+		
+
+<!-- common events and observer in  magento 2  -->
+
+</config>
+
+    

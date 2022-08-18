@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * @author Elsner Team
+ * @copyright Copyright (c) 2021 Elsner Technologies Pvt. Ltd (https://www.elsner.com/)
+ * @package Elsnertech_Zohointegration
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <event name="customer_save_after">
+        <observer name="customer_save_after" instance="Elsnertech\Zohointegration\Observer\AdminCustomercreate" />
+    </event>
+
+    <event name="controller_action_predispatch_customer_Index_MassDelete">
+        <observer name="zoho_customer_delete" instance="Elsnertech\Zohointegration\Observer\CustomerMassDelete" />
+    </event>
+	
+<!-- 	<event name="sales_order_save_after">
+        <observer name="zoho_sales_order_save_after" instance="Elsnertech\Zohointegration\Observer\Adminhtml\SalesorderAfter" />
+    </event> -->
+
+    <event name="controller_action_predispatch_catalog_product_edit">
+        <observer name="zoho_customer_edit" instance="Elsnertech\Zohointegration\Observer\Productpreedit" />
+    </event>
+
+    <event name="controller_action_predispatch_catalog_product_MassDelete">
+        <observer name="zoho_product_delete" instance="Elsnertech\Zohointegration\Observer\ProductMassDelete" />
+    </event>
+
+    <event name='sales_order_invoice_save_after'>
+        <observer name='zoho_invoice_create' instance='Elsnertech\Zohointegration\Observer\InvoiceCreate' />
+    </event>
+    
+    <event name='sales_order_shipment_save_after'>
+        <observer name="zoho_shipment_after" instance="Elsnertech\Zohointegration\Observer\ShipmentAfter" />
+    </event>
+
+    <event name='sales_order_creditmemo_save_after'>
+        <observer name="zoho_creditmemo_after" instance="Elsnertech\Zohointegration\Observer\CreditmemoAfter" />
+    </event>
+
+<!-- adminside - event and observer -->
+    
+</config>

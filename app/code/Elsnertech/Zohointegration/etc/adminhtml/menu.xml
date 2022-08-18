@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Backend:etc/menu.xsd">
+    <menu>
+        <add id="Elsnertech_Zohointegration::zohoapi" title="Zoho" module="Elsnertech_Zohointegration" sortOrder="51" resource="Elsnertech_Zohointegration::zohoapi"/>
+        <add id="Elsnertech_Zohointegration::zoho" title="Zoho Articles" module="Elsnertech_Zohointegration" sortOrder="10" action="zoho_integration/system/zohointegration" resource="Elsnertech_Zohointegration::zoho" parent="Elsnertech_Zohointegration::zohoapi"/>
+    </menu>
+</config>

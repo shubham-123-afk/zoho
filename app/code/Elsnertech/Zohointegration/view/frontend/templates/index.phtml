@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body {font-family: Arial, Helvetica, sans-serif;}
+* {box-sizing: border-box;}
+
+input[type=text], select, textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  margin-top: 6px;
+  margin-bottom: 16px;
+  resize: vertical;
+}
+
+input[type=submit] {
+  background-color: #04AA6D;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+input[type=submit]:hover {
+  background-color: #45a049;
+}
+
+.container {
+  border-radius: 5px;
+  width: 50%;
+  transform: translate(50%);
+  background-color: #f2f2f2;
+  padding: 20px;
+}
+</style>
+</head>
+<body>
+
+<input type="text" id="url" value="<?php echo $block->getStoreUrl(); ?>">
+
+<h3><center>Reffresh-Token form<center></h3>
+
+<div class="container">
+  
+    <label for="fname">code</label>
+    <input type="text" id="code" name="code" placeholder="Your code">
+
+    <label for="lname">client_id</label>
+    <input type="text" id="client_id" name="client_id" placeholder="Your client_id..">
+
+    <label for="lname">client_secret</label>
+    <input type="text" id="client_secret" name="client_secret" placeholder="Your client_secret..">
+
+    <label for="lname">redirect_uri</label>
+    <input type="text" id="redirect_uri" name="redirect_uri" placeholder="Your redirect_uri..">
+
+    <input type="submit" class="refress" value="Submit">
+
+    <input type="text" id="output" placeholder="Your client_secret..">
+
+</div>
+
+<script type="text/x-magento-init">
+    {
+       "*": {
+           "myscript": {}
+       }
+    }
+</script>
+
+</body>
+</html>
